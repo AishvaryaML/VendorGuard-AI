@@ -1,32 +1,56 @@
 import { useRef, useState } from "react";
 import {
-  FiCpu,
+  FiGlobe,
+  FiSearch,
+  FiShield,
   FiBarChart2,
-  FiMap,
-  FiGitBranch,
-  FiActivity,
+  FiFileText,
 } from "react-icons/fi";
+
 import Navbar from "../components/Navbar.jsx";
 import Hero from "../components/Hero.jsx";
 import VendorForm from "../components/VendorForm.jsx";
 import ResultCard from "../components/ResultCard.jsx";
 import Footer from "../components/Footer.jsx";
 
-const NEXT_PHASE_ITEMS = [
-  { icon: FiCpu, label: "AI-powered Privacy Policy Analysis" },
-  { icon: FiBarChart2, label: "Vendor Risk Scoring" },
-  { icon: FiMap, label: "Compliance Mapping" },
-  { icon: FiGitBranch, label: "Multi-Agent AI Workflow" },
-  { icon: FiActivity, label: "Continuous Monitoring" },
+const WORKFLOW = [
+  {
+    icon: FiGlobe,
+    title: "Scraper Agent",
+    description: "Collects vendor website and privacy policy.",
+  },
+  {
+    icon: FiSearch,
+    title: "Policy Analyzer",
+    description: "Extracts privacy and security information.",
+  },
+  {
+    icon: FiShield,
+    title: "Risk Engine",
+    description: "Calculates AI-powered vendor risk score.",
+  },
+  {
+    icon: FiBarChart2,
+    title: "Compliance Checker",
+    description: "Maps policies against compliance standards.",
+  },
+  {
+    icon: FiFileText,
+    title: "AI Report",
+    description: "Generates explainable vendor assessment report.",
+  },
 ];
 
 function Home() {
   const [result, setResult] = useState(null);
   const [vendorUrl, setVendorUrl] = useState("");
+
   const formSectionRef = useRef(null);
 
   const scrollToForm = () => {
-    formSectionRef.current?.scrollIntoView({ behavior: "smooth" });
+    formSectionRef.current?.scrollIntoView({
+      behavior: "smooth",
+    });
   };
 
   const handleResult = (data, url) => {
@@ -36,40 +60,75 @@ function Home() {
 
   return (
     <div className="min-h-screen bg-background">
+
       <Navbar />
+
       <Hero onCtaClick={scrollToForm} />
 
-      <main className="mx-auto max-w-3xl px-6 py-16" ref={formSectionRef}>
-        <VendorForm onResult={handleResult} />
-        <ResultCard result={result} vendorUrl={vendorUrl} />
+      <main
+        className="mx-auto max-w-7xl px-6 py-20"
+        ref={formSectionRef}
+      >
+        <VendorForm
+          onResult={handleResult}
+        />
 
-        <section id="about" className="mt-16 card-surface p-6 md:p-8">
-          <span className="eyebrow">Next Phase</span>
-          <h2 className="mt-2 text-xl font-bold text-white">
-            What's coming after this prototype
+        <ResultCard
+          result={result}
+          vendorUrl={vendorUrl}
+        />
+
+        {/* Workflow */}
+
+        <section
+          id="workflow"
+          className="mt-20 rounded-2xl border border-border bg-slate-900/50 p-8"
+        >
+          <span className="eyebrow">
+            AI WORKFLOW
+          </span>
+
+          <h2 className="mt-3 text-3xl font-bold text-white">
+            How VendorGuard AI Works
           </h2>
-          <p className="mt-2 text-sm text-muted">
-            This build only discovers and downloads a vendor's privacy
-            policy. The features below are planned, not yet implemented.
+
+          <p className="mt-3 max-w-3xl text-slate-400">
+            VendorGuard AI uses an Agentic AI workflow to analyze third-party
+            vendors and generate explainable vendor risk reports.
           </p>
 
-          <ul className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {NEXT_PHASE_ITEMS.map(({ icon: Icon, label }) => (
-              <li
-                key={label}
-                className="flex items-center gap-3 rounded-lg border border-border bg-background px-4 py-3"
-              >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/15 text-primary">
-                  <Icon size={16} />
-                </span>
-                <span className="text-sm text-slate-200">{label}</span>
-              </li>
-            ))}
-          </ul>
+          <div className="mt-10 grid gap-6 md:grid-cols-5">
+
+            {WORKFLOW.map((item) => {
+              const Icon = item.icon;
+
+              return (
+                <div
+                  key={item.title}
+                  className="rounded-xl border border-border bg-background p-6 text-center transition hover:border-primary hover:-translate-y-1"
+                >
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Icon size={28} />
+                  </div>
+
+                  <h3 className="mt-5 text-lg font-semibold text-white">
+                    {item.title}
+                  </h3>
+
+                  <p className="mt-3 text-sm text-slate-400">
+                    {item.description}
+                  </p>
+                </div>
+              );
+            })}
+
+          </div>
         </section>
+
       </main>
 
       <Footer />
+
     </div>
   );
 }

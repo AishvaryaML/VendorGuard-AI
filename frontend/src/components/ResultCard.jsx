@@ -55,6 +55,26 @@ function ResultCard({ result, vendorUrl }) {
           {result.characters_downloaded?.toLocaleString()} characters
         </Field>
 
+        <Field label="Risk Score">
+          <span className="font-semibold text-white">
+            {result.risk_score}/100
+          </span>
+        </Field>
+
+        <Field label="Risk Level">
+          <span
+            className={`font-semibold ${
+              result.risk_level === "High"
+                ? "text-red-400"
+                : result.risk_level === "Medium"
+                ? "text-yellow-400"
+                : "text-emerald-400"
+            }`}
+          >
+            {result.risk_level}
+          </span>
+        </Field>
+
         <Field label="Status">
           <span className="text-emerald-400">Completed</span>
         </Field>

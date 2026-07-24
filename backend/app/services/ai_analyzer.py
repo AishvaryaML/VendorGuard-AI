@@ -1,6 +1,10 @@
+import time
 import ollama
 
 def analyze_policy(policy_text):
+
+    print("===== AI STARTED =====")
+    start = time.time()
 
     prompt = f"""
 You are a cybersecurity and privacy expert.
@@ -14,7 +18,7 @@ Read the following privacy policy and provide:
 
 Privacy Policy:
 
-{policy_text[:5000]}
+{policy_text[:2000]}
 """
 
     response = ollama.chat(
@@ -26,5 +30,9 @@ Privacy Policy:
             }
         ]
     )
+
+    end = time.time()
+
+    print(f"===== AI FINISHED in {end-start:.2f} seconds =====")
 
     return response["message"]["content"]
