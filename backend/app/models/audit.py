@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Any
 from sqlalchemy import String, Text, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -26,10 +26,11 @@ class AuditLog(Base):
     details: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
     timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
         index=True,
         nullable=False
     )
+
 
     # Relationships
     vendor: Mapped[Optional["Vendor"]] = relationship("Vendor", back_populates="audit_logs")

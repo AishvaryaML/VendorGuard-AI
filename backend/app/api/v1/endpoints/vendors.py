@@ -5,8 +5,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.schemas.vendor import VendorCreate, VendorResponse, VendorUpdate
 from app.schemas.document import DocumentResponse
+from app.schemas.risk import RiskAssessmentResponse
 from app.services.crawler import VendorCrawlerService, normalize_url
 from app.services import vendor_service
+from app.services.risk_engine import AIRiskEngine, get_latest_vendor_risk_assessment
 
 router = APIRouter()
 
@@ -113,3 +115,66 @@ async def recrawl_vendor_documents(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Re-crawl failed for vendor '{vendor.name}': {str(exc)}"
         )
+
+
+@router.post("/{vendor_id}/analyze", response_model=RiskAssessmentResponse, status_code=status.HTTP_200_OK)
+async def analyze_vendor_risk(
+    vendor_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Triggers an AI risk assessment for the specified vendor.
+    Retrieves stored PolicyVersion content, runs structured evidence-backed LLM risk extraction,
+    validates evidence quotes, computes category scores & overall weighted risk score,
+    determines risk tier, and persists RiskAssessment + CategoryScore records.
+    """
+    vendor = await vendor_service.get_vendor_by_id(db=db, vendor_id=vendor_id)
+    if not vendor:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Vendor with ID '{vendor_id}' not found."
+        )
+
+    try:
+        engine = AIRiskEngine()
+        assessment = await engine.analyze_vendor(db=db, vendor_id=vendor_id)
+        return assessment
+    except ValueError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(ve)
+        )
+    except RuntimeError as re:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(re)
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Risk analysis failed unexpectedly: {str(exc)}"
+        )
+
+
+@router.get("/{vendor_id}/risk-assessment", response_model=RiskAssessmentResponse)
+async def get_vendor_risk_assessment(
+    vendor_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Retrieves the latest persisted risk assessment for a specific vendor.
+    """
+    vendor = await vendor_service.get_vendor_by_id(db=db, vendor_id=vendor_id)
+    if not vendor:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Vendor with ID '{vendor_id}' not found."
+        )
+
+    assessment = await get_latest_vendor_risk_assessment(db=db, vendor_id=vendor_id)
+    if not assessment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No risk assessment found for vendor with ID '{vendor_id}'."
+        )
+    return assessment

@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Any
 from sqlalchemy import String, Float, Text, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -24,10 +24,11 @@ class RiskAssessment(Base, TimestampMixin):
     )
     assessment_date: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
         index=True,
         nullable=False
     )
+
     overall_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0) # 0 to 100
     risk_tier: Mapped[str] = mapped_column(String(20), nullable=False, default="Medium") # Low, Medium, High, Critical
     summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

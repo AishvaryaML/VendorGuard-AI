@@ -1,7 +1,55 @@
 from datetime import datetime
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Literal
 from pydantic import BaseModel, Field, ConfigDict
 from app.models.vendor import RiskTier
+
+
+class RiskFindingSchema(BaseModel):
+    category: Literal["Privacy", "Security", "Compliance", "Legal"] = Field(
+        ...,
+        description="The risk dimension category."
+    )
+    finding: str = Field(
+        ...,
+        description="Clear, concise description of the risk finding."
+    )
+    severity: Literal["Low", "Medium", "High", "Critical"] = Field(
+        ...,
+        description="Severity level of the finding."
+    )
+    evidence: str = Field(
+        ...,
+        description="Verbatim text quote from the policy document supporting this finding."
+    )
+    source_url: str = Field(
+        ...,
+        description="URL of the policy document where evidence text was found."
+    )
+    confidence: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Confidence score between 0.0 and 1.0."
+    )
+    recommendation: str = Field(
+        ...,
+        description="Actionable mitigation recommendation for this risk finding."
+    )
+    is_verified: bool = Field(
+        default=True,
+        description="Whether the evidence quote was verified against stored policy text."
+    )
+
+
+class AIAssessmentResultSchema(BaseModel):
+    summary: str = Field(
+        ...,
+        description="Executive summary of the vendor's policy risk evaluation."
+    )
+    findings: List[RiskFindingSchema] = Field(
+        default_factory=list,
+        description="List of evidence-backed risk findings across Privacy, Security, Compliance, and Legal."
+    )
 
 
 class CategoryScoreResponse(BaseModel):
