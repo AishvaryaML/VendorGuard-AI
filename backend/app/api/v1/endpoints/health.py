@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
@@ -27,5 +27,5 @@ async def check_health(db: AsyncSession = Depends(get_db)):
         environment=settings.ENVIRONMENT,
         version="1.0.0",
         database=db_status,
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(timezone.utc)
     )

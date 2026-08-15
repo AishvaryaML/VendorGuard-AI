@@ -43,6 +43,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 async def init_db_connection():
     try:
+        import app.models  # noqa: F401 - Register all models with Base.metadata
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         logger.info("Database connection and core tables initialized successfully.")
