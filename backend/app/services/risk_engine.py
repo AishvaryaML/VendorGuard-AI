@@ -210,9 +210,15 @@ class AIRiskEngine:
         all_raw_texts: List[str] = []
 
         for doc in vendor.documents:
-            if doc.versions:
-                # Latest version is first because of order_by version_number desc
-                latest_ver = doc.versions[0]
+            ver_stmt = (
+                select(PolicyVersion)
+                .where(PolicyVersion.document_id == doc.id)
+                .order_by(PolicyVersion.version_number.desc())
+            )
+            ver_res = await db.execute(ver_stmt)
+            latest_ver = ver_res.scalars().first()
+
+            if latest_ver:
                 doc_contexts.append({
                     "document_type": doc.document_type,
                     "title": doc.title,
@@ -221,6 +227,7 @@ class AIRiskEngine:
                 })
                 full_text_by_url[doc.url] = latest_ver.raw_content
                 all_raw_texts.append(latest_ver.raw_content)
+
 
         if not doc_contexts:
             raise ValueError(

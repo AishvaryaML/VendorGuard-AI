@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.core.database import init_db_connection
 from app.core.logging import logger
+from app.core.scheduler import scheduler_manager
 from app.api.v1.api import api_router
 
 
@@ -13,8 +14,15 @@ from app.api.v1.api import api_router
 async def lifespan(app: FastAPI):
     logger.info(f"Starting {settings.PROJECT_NAME} Backend Engine...")
     await init_db_connection()
+    
+    # Start Continuous Monitoring Scheduler
+    scheduler_manager.start()
+    
     yield
+    
+    # Shutdown Continuous Monitoring Scheduler
     logger.info(f"Shutting down {settings.PROJECT_NAME} Backend Engine...")
+    scheduler_manager.shutdown()
 
 
 app = FastAPI(
