@@ -12,8 +12,24 @@ class VendorBase(BaseModel):
     monitoring_frequency: MonitoringFrequency = Field(default=MonitoringFrequency.DAILY)
 
 
-class VendorCreate(VendorBase):
-    pass
+class VendorCreate(BaseModel):
+    name: str = Field(
+        ...,
+        min_length=1,
+        max_length=255,
+        description="Vendor display name"
+    )
+    website_url: str = Field(
+        ...,
+        description="Full website URL"
+    )
+    industry: Optional[str] = Field(
+        None,
+        max_length=100
+    )
+    monitoring_frequency: MonitoringFrequency = Field(
+        default=MonitoringFrequency.DAILY
+    )
 
 
 class VendorUpdate(BaseModel):

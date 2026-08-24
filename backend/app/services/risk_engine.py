@@ -139,10 +139,11 @@ class AIRiskEngine:
 
     async def _call_llm(self, prompt: str) -> AIAssessmentResultSchema:
         """Invokes OpenAI LLM API to return structured risk assessment data."""
-        if not self.api_key:
+        if not self.api_key or not self.api_key.strip():
             raise ValueError(
-                "LLM API key is not configured. Please supply OPENAI_API_KEY in environment."
+                "AI assessment unavailable — OpenAI API key is not configured. Please supply OPENAI_API_KEY in environment."
             )
+
 
         try:
             from openai import AsyncOpenAI
