@@ -84,3 +84,8 @@ class Vendor(Base, TimestampMixin):
         back_populates="vendor",
         cascade="all, delete-orphan"
     )
+    chunks: Mapped[List["DocumentChunk"]] = relationship(
+        "DocumentChunk",
+        back_populates="vendor",
+        cascade="all, delete-orphan"
+    )

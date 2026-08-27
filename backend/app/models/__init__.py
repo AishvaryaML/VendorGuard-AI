@@ -1,6 +1,7 @@
 from app.models.base import TimestampMixin
 from app.models.vendor import Vendor, RiskTier, VendorStatus, MonitoringFrequency
 from app.models.document import Document, PolicyVersion
+from app.models.document_chunk import DocumentChunk
 from app.models.risk import RiskAssessment, CategoryScore
 from app.models.alert import Alert
 from app.models.audit import AuditLog
@@ -13,6 +14,7 @@ __all__ = [
     "MonitoringFrequency",
     "Document",
     "PolicyVersion",
+    "DocumentChunk",
     "RiskAssessment",
     "CategoryScore",
     "Alert",

@@ -38,6 +38,12 @@ class Settings(BaseSettings):
     CRAWLER_TIMEOUT_SECONDS: int = 30
     DEFAULT_MONITORING_FREQUENCY_HOURS: int = 24
 
+    # RAG Configuration
+    RAG_CHUNK_SIZE: int = 1000
+    RAG_CHUNK_OVERLAP: int = 150
+    RAG_TOP_K: int = 5
+    VECTOR_STORE_TYPE: str = "in_memory"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

@@ -37,6 +37,11 @@ class Document(Base, TimestampMixin):
         cascade="all, delete-orphan",
         order_by="PolicyVersion.version_number.desc()"
     )
+    chunks: Mapped[List["DocumentChunk"]] = relationship(
+        "DocumentChunk",
+        back_populates="document",
+        cascade="all, delete-orphan"
+    )
 
 
 class PolicyVersion(Base):
@@ -66,3 +71,8 @@ class PolicyVersion(Base):
 
     # Relationships
     document: Mapped["Document"] = relationship("Document", back_populates="versions")
+    chunks: Mapped[List["DocumentChunk"]] = relationship(
+        "DocumentChunk",
+        back_populates="policy_version",
+        cascade="all, delete-orphan"
+    )
