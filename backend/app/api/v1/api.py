@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import health, vendors, monitoring, alerts, rag, assistant
+from app.api.v1.endpoints import health, vendors, monitoring, alerts, rag, assistant, agentic
 
 api_router = APIRouter()
 
@@ -10,3 +10,4 @@ api_router.include_router(monitoring.router, prefix="/monitoring", tags=["Monito
 api_router.include_router(alerts.router, prefix="/alerts", tags=["Alerts"])
 api_router.include_router(rag.router, prefix="/rag", tags=["RAG Foundation"])
 api_router.include_router(assistant.router, prefix="/assistant", tags=["Assistant API"])
+api_router.include_router(agentic.router, prefix="/agentic", tags=["Agentic Workflow"])

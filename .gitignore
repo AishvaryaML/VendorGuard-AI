@@ -36,6 +36,7 @@ wheels/
 htmlcov/
 *.sqlite
 *.db
+vendorguard_checkpoints.db*
 
 # IDE / OS
 .vscode/

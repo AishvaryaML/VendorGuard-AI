@@ -1,5 +1,5 @@
 import os
-from typing import List
+from typing import List, Optional
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     RAG_CHUNK_OVERLAP: int = 150
     RAG_TOP_K: int = 5
     VECTOR_STORE_TYPE: str = "in_memory"
+
+    # Workflow Checkpoint Persistence Configuration
+    CHECKPOINT_DATABASE_URL: Optional[str] = None
 
     model_config = SettingsConfigDict(
         env_file=".env",
