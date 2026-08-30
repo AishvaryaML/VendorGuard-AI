@@ -9,6 +9,11 @@ import {
   AlertListResponse,
   MonitoringTriggerResponse,
   VendorMonitoringStatus,
+  AssistantChatRequest,
+  AssistantChatResponse,
+  WorkflowRunRequest,
+  WorkflowApprovalRequest,
+  WorkflowStatusResponse,
 } from '../types';
 
 export const apiClient = axios.create({
@@ -16,7 +21,7 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 45000, // 45s timeout for crawler/AI operations
+  timeout: 30000, // 30s default timeout for standard API operations
 });
 
 export const healthApi = {
@@ -51,7 +56,9 @@ export const vendorApi = {
 
 export const riskApi = {
   analyzeVendor: async (vendorId: string): Promise<RiskAssessment> => {
-    const response = await apiClient.post<RiskAssessment>(`/vendors/${vendorId}/analyze`);
+    const response = await apiClient.post<RiskAssessment>(`/vendors/${vendorId}/analyze`, null, {
+      timeout: 60000, // 60s timeout for AI risk analysis with local Ollama
+    });
     return response.data;
   },
   getRiskAssessment: async (vendorId: string): Promise<RiskAssessment> => {
@@ -91,6 +98,34 @@ export const alertsApi = {
   },
   markAsRead: async (alertId: string): Promise<Alert> => {
     const response = await apiClient.patch<Alert>(`/alerts/${alertId}/read`);
+    return response.data;
+  },
+};
+
+export const assistantApi = {
+  chat: async (payload: AssistantChatRequest): Promise<AssistantChatResponse> => {
+    const response = await apiClient.post<AssistantChatResponse>('/assistant/chat', payload, {
+      timeout: 60000, // 60s dedicated timeout for local Ollama RAG inference
+    });
+    return response.data;
+  },
+};
+
+export const agenticApi = {
+  runWorkflow: async (payload: WorkflowRunRequest): Promise<WorkflowStatusResponse> => {
+    const response = await apiClient.post<WorkflowStatusResponse>('/agentic/workflow/run', payload, {
+      timeout: 60000, // 60s timeout for multi-agent workflow initiation
+    });
+    return response.data;
+  },
+  getWorkflowStatus: async (workflowId: string): Promise<WorkflowStatusResponse> => {
+    const response = await apiClient.get<WorkflowStatusResponse>(`/agentic/workflow/status/${workflowId}`);
+    return response.data;
+  },
+  approveWorkflow: async (workflowId: string, payload: WorkflowApprovalRequest): Promise<WorkflowStatusResponse> => {
+    const response = await apiClient.post<WorkflowStatusResponse>(`/agentic/workflow/approve/${workflowId}`, payload, {
+      timeout: 60000, // 60s timeout for workflow resumption
+    });
     return response.data;
   },
 };

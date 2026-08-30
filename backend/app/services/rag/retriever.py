@@ -4,7 +4,7 @@ from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.services.rag.embeddings import BaseEmbeddingService, OpenAIEmbeddingService
+from app.services.rag.embeddings import BaseEmbeddingService, get_embedding_service
 from app.services.rag.vector_store import (
     BaseVectorStore,
     SearchResult,
@@ -42,7 +42,7 @@ class RAGRetriever:
         vector_store: Optional[BaseVectorStore] = None,
         indexer: Optional[RAGIndexer] = None,
     ):
-        self.embedding_service = embedding_service or OpenAIEmbeddingService()
+        self.embedding_service = embedding_service or get_embedding_service()
         self.vector_store = vector_store or get_vector_store()
         self.indexer = indexer or RAGIndexer(
             embedding_service=self.embedding_service,
@@ -73,6 +73,14 @@ class RAGRetriever:
             return []
 
         k = top_k or settings.RAG_TOP_K
+
+        # Check embedding fingerprint and clear index if provider/model switched
+        model_name = getattr(self.embedding_service, "model_name", "default")
+        self.vector_store.check_and_update_fingerprint(
+            provider=settings.AI_PROVIDER,
+            model=model_name,
+            dimension=self.embedding_service.dimension
+        )
 
         # Auto-index vendor documents if zero vectors found for vendor
         if auto_index_if_empty and db is not None:

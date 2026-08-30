@@ -9,10 +9,12 @@ import {
   Bell,
   TrendingUp,
   AlertTriangle,
-  ExternalLink,
   Loader2,
   ChevronRight,
   Clock,
+  Bot,
+  MessageSquareText,
+  Sparkles,
 } from 'lucide-react';
 import { vendorApi, alertsApi } from '../../services/api';
 import { Vendor, Alert, RiskTier } from '../../types';
@@ -61,9 +63,37 @@ export const DashboardPage: React.FC = () => {
     <div className="space-y-6">
       <PageHeader
         title="Executive Security Dashboard"
-        description="Continuous third-party vendor risk intelligence, real-time posture metrics, and policy change monitoring."
+        description="Continuous third-party vendor risk intelligence, real-time posture metrics, and AI multi-agent workflows."
         badge="Live System"
       />
+
+      {/* Quick Action Bar for RAG Assistant & Agentic Workflows */}
+      <div className="glass-panel p-4 rounded-xl border border-border flex flex-col sm:flex-row items-center justify-between gap-4 bg-gradient-to-r from-purple-950/20 via-surface to-cyber-cyan/10">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400">
+            <Sparkles className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="text-sm font-bold text-white">AI Risk Intelligence Quick Actions</h4>
+            <p className="text-xs text-slate-400">Ask questions using vector RAG or execute LangGraph multi-agent assessments.</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <button
+            onClick={() => navigate('/assistant')}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3.5 py-2 bg-purple-500/20 text-purple-300 border border-purple-500/40 rounded-lg text-xs font-semibold hover:bg-purple-500/30 transition-colors"
+          >
+            <MessageSquareText className="w-4 h-4" /> Launch RAG Assistant
+          </button>
+          <button
+            onClick={() => navigate('/vendors')}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3.5 py-2 bg-gradient-to-r from-cyber-cyan to-cyber-blue text-black rounded-lg text-xs font-bold hover:opacity-90 transition-opacity"
+          >
+            <Bot className="w-4 h-4" /> Run Multi-Agent Workflow
+          </button>
+        </div>
+      </div>
 
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -222,3 +252,5 @@ export const DashboardPage: React.FC = () => {
     </div>
   );
 };
+
+export default DashboardPage;

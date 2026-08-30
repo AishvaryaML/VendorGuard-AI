@@ -12,6 +12,7 @@ from app.schemas.assistant import (
 )
 from app.services.rag import RAGRetriever, RetrievalResult
 from app.services.vendor_service import get_vendor_by_id
+from app.services.llm import BaseLLMService, get_llm_service
 
 logger = logging.getLogger("vendorguard.assistant")
 
@@ -20,15 +21,18 @@ class VendorAssistantService:
     """
     RAG-grounded Vendor Assistant service.
     Answers user questions strictly using retrieved vendor policy evidence and formats verified citations.
+    Supports pluggable LLM provider abstractions (OpenAI, Ollama, etc.).
     """
 
     def __init__(
         self,
         retriever: Optional[RAGRetriever] = None,
+        llm_service: Optional[BaseLLMService] = None,
         openai_api_key: Optional[str] = None,
         model_name: Optional[str] = None,
     ):
         self.retriever = retriever or RAGRetriever()
+        self.llm_service = llm_service or get_llm_service(api_key=openai_api_key, model_name=model_name)
         self.api_key = openai_api_key or settings.OPENAI_API_KEY
         self.model_name = model_name or settings.LLM_MODEL
 
@@ -39,65 +43,26 @@ class VendorAssistantService:
         user_message: str,
         conversation_history: Optional[List[ChatMessagePayload]] = None
     ) -> str:
-        """Invokes OpenAI LLM with grounded RAG context and system prompt."""
-        if not self.api_key or not self.api_key.strip():
-            raise ValueError(
-                "Assistant unavailable — OpenAI API key is not configured. Please supply OPENAI_API_KEY in environment."
+        """Invokes LLM provider with grounded RAG context and system prompt."""
+        evidence_blocks = []
+        for idx, ev in enumerate(evidence_list, 1):
+            doc_title = ev.metadata.get("document_title", ev.document_type)
+            evidence_blocks.append(
+                f"[EVIDENCE ITEM {idx}]\n"
+                f"Document Type: {ev.document_type}\n"
+                f"Title: {doc_title}\n"
+                f"Source URL: {ev.source_url}\n"
+                f"Excerpt: {ev.text}\n"
             )
 
-        try:
-            from openai import AsyncOpenAI
+        evidence_text = "\n".join(evidence_blocks)
 
-            client = AsyncOpenAI(api_key=self.api_key)
-
-            evidence_blocks = []
-            for idx, ev in enumerate(evidence_list, 1):
-                doc_title = ev.metadata.get("document_title", ev.document_type)
-                evidence_blocks.append(
-                    f"[EVIDENCE ITEM {idx}]\n"
-                    f"Document Type: {ev.document_type}\n"
-                    f"Title: {doc_title}\n"
-                    f"Source URL: {ev.source_url}\n"
-                    f"Excerpt: {ev.text}\n"
-                )
-
-            evidence_text = "\n".join(evidence_blocks)
-
-            system_instruction = (
-                f"You are VendorGuard AI Assistant, an expert vendor risk analyst.\n"
-                f"Your task is to answer user questions about vendor '{vendor_name}'.\n\n"
-                f"CRITICAL GROUNDING RULES:\n"
-                f"1. Answer ONLY using the provided policy document evidence below.\n"
-                f"2. Do NOT invent facts, assume unstated details, or use external knowledge.\n"
-                f"3. If the provided policy evidence is insufficient or does not contain the answer, "
-                f"explicitly state: 'There is insufficient evidence in the indexed policy documents for this vendor to answer your request.'\n"
-                f"4. Keep your answer professional, objective, concise, and focused on security, privacy, and compliance risks.\n\n"
-                f"--- RETRIEVED POLICY EVIDENCE FOR {vendor_name.upper()} ---\n"
-                f"{evidence_text}\n"
-            )
-
-            messages = [{"role": "system", "content": system_instruction}]
-
-            # Add stateless conversation history if provided
-            if conversation_history:
-                for msg in conversation_history:
-                    role = "user" if msg.role == "user" else "assistant"
-                    messages.append({"role": role, "content": msg.content})
-
-            messages.append({"role": "user", "content": user_message})
-
-            response = await client.chat.completions.create(
-                model=self.model_name,
-                messages=messages,
-                temperature=0.1,
-            )
-
-            answer_content = response.choices[0].message.content
-            return answer_content.strip() if answer_content else "No response generated."
-
-        except Exception as exc:
-            logger.error("OpenAI LLM API call failed: %s", str(exc), exc_info=True)
-            raise RuntimeError(f"Assistant LLM service failure: {str(exc)}") from exc
+        return await self.llm_service.generate_assistant_answer(
+            vendor_name=vendor_name,
+            evidence_text=evidence_text,
+            user_message=user_message,
+            conversation_history=conversation_history
+        )
 
     async def chat(
         self,

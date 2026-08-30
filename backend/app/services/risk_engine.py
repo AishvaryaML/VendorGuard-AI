@@ -11,6 +11,7 @@ from app.models.vendor import Vendor, RiskTier
 from app.models.document import Document, PolicyVersion
 from app.models.risk import RiskAssessment, CategoryScore
 from app.schemas.risk import RiskFindingSchema, AIAssessmentResultSchema
+from app.services.llm import BaseLLMService, get_llm_service
 
 logger = logging.getLogger("vendorguard.risk_engine")
 
@@ -131,49 +132,22 @@ class AIRiskEngine:
     """
     Modular AI Risk Analytics Engine.
     Consumes stored policy documents for a vendor and produces an explainable, evidence-backed assessment.
+    Supports pluggable LLM provider abstractions (OpenAI, Ollama, etc.).
     """
 
-    def __init__(self, openai_api_key: Optional[str] = None, model_name: Optional[str] = None):
+    def __init__(
+        self,
+        llm_service: Optional[BaseLLMService] = None,
+        openai_api_key: Optional[str] = None,
+        model_name: Optional[str] = None
+    ):
+        self.llm_service = llm_service or get_llm_service()
         self.api_key = openai_api_key or settings.OPENAI_API_KEY
         self.model_name = model_name or settings.LLM_MODEL
 
     async def _call_llm(self, prompt: str) -> AIAssessmentResultSchema:
-        """Invokes OpenAI LLM API to return structured risk assessment data."""
-        if not self.api_key or not self.api_key.strip():
-            raise ValueError(
-                "AI assessment unavailable — OpenAI API key is not configured. Please supply OPENAI_API_KEY in environment."
-            )
-
-
-        try:
-            from openai import AsyncOpenAI
-
-            client = AsyncOpenAI(api_key=self.api_key)
-
-            system_instruction = (
-                "You are an expert AI Risk & Security Auditor. "
-                "Analyze vendor policy documents and return structured JSON matching the requested schema. "
-                "For every finding, provide exact verbatim quotes as evidence from the provided policy text, "
-                "specify the document source URL, category (Privacy, Security, Compliance, or Legal), "
-                "severity (Low, Medium, High, Critical), confidence (0.0 to 1.0), and actionable recommendation. "
-                "Do NOT invent quotes or URLs not present in the supplied policy text."
-            )
-
-            response = await client.beta.chat.completions.parse(
-                model=self.model_name,
-                messages=[
-                    {"role": "system", "content": system_instruction},
-                    {"role": "user", "content": prompt},
-                ],
-                response_format=AIAssessmentResultSchema,
-                temperature=0.1,
-            )
-
-            return response.choices[0].message.parsed
-
-        except Exception as exc:
-            logger.error("OpenAI API call failed: %s", str(exc), exc_info=True)
-            raise RuntimeError(f"LLM API call failed: {str(exc)}") from exc
+        """Delegates LLM call to configured LLM provider service."""
+        return await self.llm_service.analyze_vendor_policy(prompt)
 
     async def analyze_vendor(
         self,
@@ -185,7 +159,7 @@ class AIRiskEngine:
         Executes end-to-end risk assessment for a vendor:
         1. Loads vendor & stored PolicyVersions.
         2. Formats policy documents into prompt context.
-        3. Calls LLM (or uses mock_result if supplied in tests).
+        3. Calls LLM provider (or uses mock_result if supplied in tests).
         4. Validates evidence against stored policy text.
         5. Computes category scores & overall weighted score.
         6. Maps risk tier.
@@ -228,7 +202,6 @@ class AIRiskEngine:
                 })
                 full_text_by_url[doc.url] = latest_ver.raw_content
                 all_raw_texts.append(latest_ver.raw_content)
-
 
         if not doc_contexts:
             raise ValueError(

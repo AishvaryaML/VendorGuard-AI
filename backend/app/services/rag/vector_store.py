@@ -89,15 +89,40 @@ class BaseVectorStore(ABC):
         """Clears all records in vector store."""
         pass
 
+    @abstractmethod
+    def check_and_update_fingerprint(self, provider: str, model: str, dimension: int) -> bool:
+        """Checks if embedding fingerprint matches existing stored vectors; clears index if mismatched."""
+        pass
+
 
 class InMemoryVectorStore(BaseVectorStore):
     """
     Lightweight, fast in-memory vector store for development & testing.
     Supports metadata filtering, strict vendor isolation, and cosine similarity.
+    Tracks embedding provider, model, and dimension fingerprint to auto-clear on provider switch.
     """
 
     def __init__(self):
         self._records: Dict[str, VectorRecord] = {}
+        self._provider: Optional[str] = None
+        self._model: Optional[str] = None
+        self._dimension: Optional[int] = None
+
+    def check_and_update_fingerprint(self, provider: str, model: str, dimension: int) -> bool:
+        if (
+            self._provider is not None
+            and (self._provider != provider or self._model != model or self._dimension != dimension)
+        ):
+            logger.warning(
+                "Embedding fingerprint mismatch detected (stored: %s/%s/%s vs new: %s/%s/%s). Clearing vector store index.",
+                self._provider, self._model, self._dimension, provider, model, dimension
+            )
+            self._records.clear()
+
+        self._provider = provider
+        self._model = model
+        self._dimension = dimension
+        return True
 
     async def add_records(self, records: List[VectorRecord]) -> int:
         added_count = 0
@@ -178,6 +203,9 @@ class InMemoryVectorStore(BaseVectorStore):
 
     async def clear(self) -> None:
         self._records.clear()
+        self._provider = None
+        self._model = None
+        self._dimension = None
 
 
 # Global Singleton Vector Store Instance for the app

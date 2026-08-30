@@ -23,17 +23,25 @@ class Settings(BaseSettings):
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
     POSTGRES_DB: str = "vendorguard_db"
-    
+
     # Default to SQLite async for local dev zero-dependency bootstrap, upgradable to PostgreSQL via env
     DATABASE_URL: str = Field(
         default="sqlite+aiosqlite:///./vendorguard.db",
         description="Async SQLAlchemy database URL"
     )
 
-    # AI & Scraper Settings
+    # AI Provider Settings ("ollama" or "openai")
+    AI_PROVIDER: str = "ollama"
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    OLLAMA_LLM_MODEL: str = "llama3.2"
+    OLLAMA_EMBEDDING_MODEL: str = "nomic-embed-text"
+
+    # OpenAI Settings
     OPENAI_API_KEY: str = ""
     LLM_MODEL: str = "gpt-4o-mini"
     EMBEDDING_MODEL: str = "text-embedding-3-small"
+
+    # Scraper Settings
     CRAWLER_USER_AGENT: str = "VendorGuardAI-SecurityBot/1.0 (+https://vendorguard.ai)"
     CRAWLER_TIMEOUT_SECONDS: int = 30
     DEFAULT_MONITORING_FREQUENCY_HOURS: int = 24
@@ -48,7 +56,7 @@ class Settings(BaseSettings):
     CHECKPOINT_DATABASE_URL: Optional[str] = None
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", "backend/.env", "../.env", "../backend/.env"),
         env_file_encoding="utf-8",
         extra="ignore"
     )

@@ -6,6 +6,7 @@ from app.core.config import settings
 from app.models.alert import Alert
 from app.models.audit import AuditLog
 from app.services.agents.state import VendorRiskState
+from app.services.llm import BaseLLMService, get_llm_service
 
 logger = logging.getLogger("vendorguard.agents.executive_report")
 
@@ -16,9 +17,16 @@ class ExecutiveReportAgent:
     - Synthesizing verified risk assessment into an executive-level summary & actionable recommendations
     - Including evidence citations and category score breakdowns
     - Reusing existing Alert and AuditLog infrastructure to record risk updates without duplicating alerts
+    - Using configured LLM provider abstraction (Ollama or OpenAI)
     """
 
-    def __init__(self, openai_api_key: Optional[str] = None, model_name: Optional[str] = None):
+    def __init__(
+        self,
+        llm_service: Optional[BaseLLMService] = None,
+        openai_api_key: Optional[str] = None,
+        model_name: Optional[str] = None
+    ):
+        self.llm_service = llm_service or get_llm_service(api_key=openai_api_key, model_name=model_name)
         self.api_key = openai_api_key or settings.OPENAI_API_KEY
         self.model_name = model_name or settings.LLM_MODEL
 
@@ -30,46 +38,13 @@ class ExecutiveReportAgent:
         category_scores: Dict[str, float],
         key_findings: List[Dict[str, Any]]
     ) -> str:
-        if not self.api_key or not self.api_key.strip():
-            return (
-                f"Executive Summary for {vendor_name}: Overall Risk Score is {overall_score} ({risk_tier} Risk Tier). "
-                f"Category Breakdown: " + ", ".join(f"{k}: {v}" for k, v in category_scores.items()) + ". "
-                f"Verified findings: {len(key_findings)} risk item(s) identified."
-            )
-
-        try:
-            from openai import AsyncOpenAI
-
-            client = AsyncOpenAI(api_key=self.api_key)
-
-            prompt = (
-                f"Synthesize an executive security & risk report summary for vendor '{vendor_name}'.\n"
-                f"Overall Score: {overall_score}/100\n"
-                f"Risk Tier: {risk_tier}\n"
-                f"Category Scores: {category_scores}\n"
-                f"Key Findings: {key_findings}\n\n"
-                f"Provide a 2-3 paragraph executive summary covering risk posture, key vulnerabilities, "
-                f"and strategic recommendations for security analysts."
-            )
-
-            response = await client.chat.completions.create(
-                model=self.model_name,
-                messages=[
-                    {"role": "system", "content": "You are a Chief Information Security Officer (CISO) executive reporting assistant."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.2,
-            )
-
-            summary = response.choices[0].message.content
-            return summary.strip() if summary else f"Executive report generated for {vendor_name}."
-
-        except Exception as exc:
-            logger.warning(f"LLM call failed for ExecutiveReportAgent: {str(exc)}. Falling back to structured summary.")
-            return (
-                f"Executive Summary for {vendor_name}: Overall Risk Score is {overall_score} ({risk_tier} Risk Tier). "
-                f"Category Breakdown: " + ", ".join(f"{k}: {v}" for k, v in category_scores.items()) + "."
-            )
+        return await self.llm_service.generate_executive_summary(
+            vendor_name=vendor_name,
+            overall_score=overall_score,
+            risk_tier=risk_tier,
+            category_scores=category_scores,
+            key_findings=key_findings
+        )
 
     async def run(
         self,

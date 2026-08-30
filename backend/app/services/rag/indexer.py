@@ -4,11 +4,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
 
+from app.core.config import settings
 from app.models.vendor import Vendor
 from app.models.document import Document, PolicyVersion
 from app.models.document_chunk import DocumentChunk
 from app.services.rag.chunker import TextChunker, ChunkData
-from app.services.rag.embeddings import BaseEmbeddingService, OpenAIEmbeddingService
+from app.services.rag.embeddings import BaseEmbeddingService, get_embedding_service
 from app.services.rag.vector_store import (
     BaseVectorStore,
     VectorRecord,
@@ -32,7 +33,7 @@ class RAGIndexer:
         vector_store: Optional[BaseVectorStore] = None,
     ):
         self.chunker = chunker or TextChunker()
-        self.embedding_service = embedding_service or OpenAIEmbeddingService()
+        self.embedding_service = embedding_service or get_embedding_service()
         self.vector_store = vector_store or get_vector_store()
 
     async def index_policy_version(
@@ -111,6 +112,14 @@ class RAGIndexer:
         # 2. Generate embeddings in batch
         texts_to_embed = [c.text for c in chunk_data_list]
         embeddings = await self.embedding_service.embed_documents(texts_to_embed)
+
+        # Update vector store fingerprint and clear if provider/model switched
+        model_name = getattr(self.embedding_service, "model_name", "default")
+        self.vector_store.check_and_update_fingerprint(
+            provider=settings.AI_PROVIDER,
+            model=model_name,
+            dimension=self.embedding_service.dimension
+        )
 
         # 3. Create DocumentChunk DB records & VectorRecords
         db_chunks: List[DocumentChunk] = []

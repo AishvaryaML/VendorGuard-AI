@@ -1,4 +1,5 @@
 import logging
+import httpx
 from abc import ABC, abstractmethod
 from typing import List, Optional
 from app.core.config import settings
@@ -48,7 +49,6 @@ class OpenAIEmbeddingService(BaseEmbeddingService):
 
     async def embed_text(self, text: str) -> List[float]:
         if not text or not text.strip():
-            # Return zero vector for empty text
             return [0.0] * self.dimension
 
         results = await self.embed_documents([text])
@@ -79,3 +79,91 @@ class OpenAIEmbeddingService(BaseEmbeddingService):
         except Exception as exc:
             logger.error("OpenAI Embedding API call failed: %s", str(exc), exc_info=True)
             raise RuntimeError(f"Embedding API call failed: {str(exc)}") from exc
+
+
+class OllamaEmbeddingService(BaseEmbeddingService):
+    """
+    Local Ollama Embedding API implementation using httpx.
+    Dynamically detects and caches vector dimension from returned embedding vectors.
+    """
+
+    def __init__(
+        self,
+        base_url: Optional[str] = None,
+        model_name: Optional[str] = None
+    ):
+        self.base_url = (base_url or settings.OLLAMA_BASE_URL).rstrip("/")
+        self.model_name = model_name or settings.OLLAMA_EMBEDDING_MODEL
+        self._detected_dimension: Optional[int] = None
+
+    @property
+    def dimension(self) -> int:
+        # Return cached dimension if available, otherwise default to 768 for nomic-embed-text
+        return self._detected_dimension if self._detected_dimension is not None else 768
+
+    async def embed_text(self, text: str) -> List[float]:
+        if not text or not text.strip():
+            return [0.0] * self.dimension
+
+        results = await self.embed_documents([text])
+        return results[0]
+
+    async def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        if not texts:
+            return []
+
+        cleaned_texts = [t.replace("\n", " ").strip() if t else " " for t in texts]
+        results: List[List[float]] = []
+
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                # Try new Ollama /api/embed batch endpoint first
+                embed_res = await client.post(
+                    f"{self.base_url}/api/embed",
+                    json={
+                        "model": self.model_name,
+                        "input": cleaned_texts
+                    }
+                )
+
+                if embed_res.status_code == 200:
+                    data = embed_res.json()
+                    embeddings = data.get("embeddings", [])
+                    if embeddings:
+                        self._detected_dimension = len(embeddings[0])
+                        return embeddings
+
+                # Fallback to single-item /api/embeddings for legacy Ollama versions
+                for text in cleaned_texts:
+                    resp = await client.post(
+                        f"{self.base_url}/api/embeddings",
+                        json={
+                            "model": self.model_name,
+                            "prompt": text
+                        }
+                    )
+                    resp.raise_for_status()
+                    data = resp.json()
+                    emb = data.get("embedding", [])
+                    if emb and self._detected_dimension is None:
+                        self._detected_dimension = len(emb)
+                    results.append(emb)
+
+                return results
+
+        except Exception as exc:
+            logger.error("Ollama Embedding API call failed: %s", str(exc), exc_info=True)
+            raise RuntimeError(f"Ollama embedding failure: {str(exc)}") from exc
+
+
+def get_embedding_service() -> BaseEmbeddingService:
+    """Factory function returning the configured embedding provider service."""
+    provider = settings.AI_PROVIDER.lower().strip()
+    if provider == "ollama":
+        return OllamaEmbeddingService()
+    elif provider == "openai":
+        return OpenAIEmbeddingService()
+    else:
+        raise ValueError(
+            f"Invalid AI_PROVIDER '{settings.AI_PROVIDER}'. Supported providers are 'ollama' or 'openai'."
+        )

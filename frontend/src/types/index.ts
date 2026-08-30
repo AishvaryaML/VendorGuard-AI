@@ -147,3 +147,60 @@ export interface VendorMonitoringStatus {
   last_risk_score: number;
   last_risk_tier: string;
 }
+
+// Assistant RAG Chat Types
+export interface ChatMessagePayload {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface AssistantCitation {
+  document_type: string;
+  title: string;
+  source_url: string;
+  snippet: string;
+  similarity_score: number;
+  chunk_id: string;
+}
+
+export interface AssistantChatRequest {
+  vendor_id: string;
+  message: string;
+  conversation_history?: ChatMessagePayload[];
+}
+
+export interface AssistantChatResponse {
+  vendor_id: string;
+  answer: string;
+  sources: AssistantCitation[];
+  timestamp: string;
+}
+
+// Agentic Workflow Types
+export interface WorkflowRunRequest {
+  vendor_id: string;
+  force_recrawl?: boolean;
+  force_reindex?: boolean;
+}
+
+export interface WorkflowApprovalRequest {
+  approved: boolean;
+  notes?: string;
+}
+
+export interface WorkflowStatusResponse {
+  workflow_id: string;
+  vendor_id: string;
+  vendor_name: string;
+  domain: string;
+  status: string;
+  current_step: string;
+  overall_score: number;
+  risk_tier: RiskTier;
+  requires_human_approval: boolean;
+  human_approved?: boolean | null;
+  approval_notes?: string | null;
+  executive_summary: string;
+  indexed_chunks_count: number;
+  errors: string[];
+}
