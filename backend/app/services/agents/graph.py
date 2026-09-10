@@ -39,8 +39,10 @@ async def get_checkpointer(custom_conn_str: Optional[str] = None) -> BaseCheckpo
             logger.warning(f"Failed to initialize AsyncPostgresSaver ({exc}). Falling back to AsyncSqliteSaver.")
 
     try:
+        from pathlib import Path
         from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
-        sqlite_file = "./vendorguard_checkpoints.db"
+        backend_dir = Path(__file__).resolve().parent.parent.parent
+        sqlite_file = str(backend_dir / "vendorguard_checkpoints.db")
         conn = await aiosqlite.connect(sqlite_file)
         saver = AsyncSqliteSaver(conn)
         await saver.setup()

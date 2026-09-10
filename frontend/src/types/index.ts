@@ -128,11 +128,23 @@ export interface VendorMonitoringResult {
 }
 
 export interface MonitoringTriggerResponse {
+  job_id: string;
+  status: string;
   message: string;
-  timestamp: string;
+  total_vendors: number;
+}
 
-  monitored_count: number;
-  results: VendorMonitoringResult[];
+export interface MonitoringJobStatusResponse {
+  job_id: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  total_vendors: number;
+  completed_vendors: number;
+  current_vendor?: string | null;
+  successful_vendors: number;
+  failed_vendors: number;
+  started_at: string;
+  completed_at?: string | null;
+  error?: string | null;
 }
 
 export interface VendorMonitoringStatus {
@@ -203,4 +215,74 @@ export interface WorkflowStatusResponse {
   executive_summary: string;
   indexed_chunks_count: number;
   errors: string[];
+}
+
+// Executive Security Assessment Report Types
+export interface ReportVendorInfo {
+  vendor_id: string;
+  name: string;
+  domain: string;
+  website_url: string;
+  status: string;
+  monitoring_frequency: string;
+  risk_tier: string;
+  current_risk_score: number;
+  last_monitored_at?: string | null;
+}
+
+export interface ReportExecutiveSummary {
+  summary_text: string;
+  overall_risk_tier: string;
+  overall_score: number;
+  policy_posture: string;
+  policy_changes_detected: boolean;
+  key_highlights: string[];
+}
+
+export interface ReportCategoryScore {
+  category: string;
+  score: number;
+  justification?: string | null;
+}
+
+export interface ReportFinding {
+  category: string;
+  severity: string;
+  finding: string;
+  evidence?: string | null;
+  source_url?: string | null;
+  recommendation?: string | null;
+  is_verified: boolean;
+}
+
+export interface ReportEvidenceItem {
+  category: string;
+  document_type: string;
+  title: string;
+  source_url: string;
+  quote: string;
+  is_verified: boolean;
+}
+
+export interface ReportPolicySnapshot {
+  document_id: string;
+  document_type: string;
+  title: string;
+  url: string;
+  current_version_hash?: string | null;
+  version_number: number;
+  last_crawled_at?: string | null;
+  change_summary?: string | null;
+}
+
+export interface VendorSecurityReport {
+  vendor: ReportVendorInfo;
+  executive_summary: ReportExecutiveSummary;
+  risk_overview: ReportCategoryScore[];
+  findings: ReportFinding[];
+  evidence: ReportEvidenceItem[];
+  recommendations: string[];
+  policy_snapshots: ReportPolicySnapshot[];
+  has_assessment_data: boolean;
+  generated_at: string;
 }

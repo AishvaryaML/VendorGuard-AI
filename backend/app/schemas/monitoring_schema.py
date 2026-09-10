@@ -20,10 +20,23 @@ class VendorMonitoringResult(BaseModel):
 
 
 class MonitoringTriggerResponse(BaseModel):
-    message: str
-    timestamp: datetime
-    monitored_count: int
-    results: List[VendorMonitoringResult]
+    job_id: str
+    status: str = "pending"
+    message: str = "Monitoring job accepted"
+    total_vendors: int
+
+
+class MonitoringJobStatusResponse(BaseModel):
+    job_id: str
+    status: str
+    total_vendors: int
+    completed_vendors: int
+    current_vendor: Optional[str] = None
+    successful_vendors: int
+    failed_vendors: int
+    started_at: datetime
+    completed_at: Optional[datetime] = None
+    error: Optional[str] = None
 
 
 class VendorMonitoringStatusResponse(BaseModel):

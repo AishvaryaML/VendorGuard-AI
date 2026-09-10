@@ -213,11 +213,13 @@ class AIRiskEngine:
             f"Analyze vendor '{vendor.name}' (Domain: {vendor.domain}) using the following legal/security policy documents:\n"
         ]
         for idx, doc_ctx in enumerate(doc_contexts, 1):
+            # Budget content to 3,000 chars per document for fast and reliable local LLM extraction
+            content_snippet = doc_ctx['raw_content'][:3000].strip()
             prompt_parts.append(
                 f"--- DOCUMENT {idx}: {doc_ctx['document_type']} ---"
                 f"\nURL: {doc_ctx['url']}"
                 f"\nTITLE: {doc_ctx['title']}"
-                f"\nCONTENT:\n{doc_ctx['raw_content']}\n"
+                f"\nCONTENT:\n{content_snippet}\n"
             )
 
         prompt = "\n".join(prompt_parts)

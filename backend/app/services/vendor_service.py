@@ -13,14 +13,13 @@ from app.services.crawler import VendorCrawlerService, normalize_url, extract_do
 from app.core.logging import logger
 
 
-async def create_vendor_and_discover_documents(
+async def create_vendor(
     db: AsyncSession,
-    vendor_in: VendorCreate,
-    crawler_service: Optional[VendorCrawlerService] = None
-) -> Tuple[Vendor, List[Document]]:
+    vendor_in: VendorCreate
+) -> Vendor:
     """
-    Creates a new Vendor profile in DB and triggers the document discovery / crawling pipeline.
-    Persists discovered Documents and PolicyVersions with SHA-256 versioning.
+    Creates and immediately commits a new Vendor in the database,
+    or updates an existing vendor if the domain is already registered.
     """
     normalized_url = normalize_url(vendor_in.website_url)
     domain = extract_domain(normalized_url)
@@ -31,7 +30,16 @@ async def create_vendor_and_discover_documents(
     existing_vendor = res.scalar_one_or_none()
 
     if existing_vendor:
-        vendor = existing_vendor
+        existing_vendor.name = vendor_in.name
+        existing_vendor.website_url = normalized_url
+        if vendor_in.industry:
+            existing_vendor.industry = vendor_in.industry
+        existing_vendor.monitoring_frequency = vendor_in.monitoring_frequency
+        existing_vendor.status = VendorStatus.ACTIVE
+        await db.commit()
+        await db.refresh(existing_vendor)
+        logger.info(f"Vendor '{existing_vendor.name}' ({domain}) updated and persisted.")
+        return existing_vendor
     else:
         vendor = Vendor(
             name=vendor_in.name,
@@ -56,18 +64,37 @@ async def create_vendor_and_discover_documents(
         )
         db.add(audit)
         await db.commit()
+        logger.info(f"Vendor '{vendor.name}' ({domain}) created and persisted with ID {vendor.id}.")
+        return vendor
 
-    # Run discovery crawl
-    crawler = crawler_service or VendorCrawlerService()
-    crawl_data = await crawler.crawl_vendor(normalized_url)
 
-    # Process and persist documents
-    documents = await sync_vendor_crawled_documents(db, vendor.id, crawl_data["documents"])
+async def create_vendor_and_discover_documents(
+    db: AsyncSession,
+    vendor_in: VendorCreate,
+    crawler_service: Optional[VendorCrawlerService] = None
+) -> Tuple[Vendor, List[Document]]:
+    """
+    1. Persists the vendor record immediately to DB.
+    2. Runs discovery crawl in an isolated try-except block so that crawling delays/errors
+       cannot rollback or cancel the vendor creation.
+    """
+    vendor = await create_vendor(db=db, vendor_in=vendor_in)
 
-    # Update vendor last_monitored_at timestamp
-    vendor.last_monitored_at = datetime.now(timezone.utc)
-    await db.commit()
-    await db.refresh(vendor)
+    documents: List[Document] = []
+    try:
+        crawler = crawler_service or VendorCrawlerService()
+        crawl_data = await crawler.crawl_vendor(vendor.website_url)
+        if crawl_data and "documents" in crawl_data and crawl_data["documents"]:
+            documents = await sync_vendor_crawled_documents(db, vendor.id, crawl_data["documents"])
+            vendor.last_monitored_at = datetime.now(timezone.utc)
+            await db.commit()
+            await db.refresh(vendor)
+            logger.info(f"Successfully discovered {len(documents)} policy document(s) for vendor '{vendor.name}'.")
+    except Exception as crawl_err:
+        logger.warning(
+            f"Discovery crawl for vendor '{vendor.name}' encountered an error: {str(crawl_err)}. "
+            f"Vendor record {vendor.id} remains safely persisted in database."
+        )
 
     return vendor, documents
 
@@ -85,6 +112,7 @@ async def sync_vendor_crawled_documents(
     """
     processed_documents: List[Document] = []
     now_utc = datetime.now(timezone.utc)
+    clean_id = str(vendor_id).strip()
 
     for doc_data in raw_documents:
         doc_type = doc_data["document_type"]
@@ -97,7 +125,7 @@ async def sync_vendor_crawled_documents(
         stmt = (
             select(Document)
             .options(selectinload(Document.versions))
-            .where(Document.vendor_id == vendor_id, Document.document_type == doc_type)
+            .where(Document.vendor_id == clean_id, Document.document_type == doc_type)
         )
         res = await db.execute(stmt)
         existing_doc = res.scalar_one_or_none()
@@ -105,7 +133,7 @@ async def sync_vendor_crawled_documents(
         if not existing_doc:
             # Create new Document
             document = Document(
-                vendor_id=vendor_id,
+                vendor_id=clean_id,
                 document_type=doc_type,
                 title=doc_title,
                 url=doc_url,
@@ -141,7 +169,7 @@ async def sync_vendor_crawled_documents(
             else:
                 # Hash has changed! Increment version & create new PolicyVersion
                 next_version_num = (latest_version.version_number + 1) if latest_version else 1
-                
+
                 new_version = PolicyVersion(
                     document_id=document.id,
                     version_number=next_version_num,
@@ -175,6 +203,7 @@ async def sync_vendor_crawled_documents(
 
 async def get_vendor_by_id(db: AsyncSession, vendor_id: str) -> Optional[Vendor]:
     """Retrieves a Vendor by ID with documents and risk assessments loaded."""
+    clean_id = str(vendor_id).strip()
     stmt = (
         select(Vendor)
         .options(
@@ -182,14 +211,14 @@ async def get_vendor_by_id(db: AsyncSession, vendor_id: str) -> Optional[Vendor]
             selectinload(Vendor.risk_assessments),
             selectinload(Vendor.alerts)
         )
-        .where(Vendor.id == vendor_id)
+        .where(Vendor.id == clean_id)
     )
     res = await db.execute(stmt)
     return res.scalar_one_or_none()
 
 
 async def list_vendors(db: AsyncSession, skip: int = 0, limit: int = 100) -> List[Vendor]:
-    """Lists vendor records ordered by created_at desc."""
-    stmt = select(Vendor).order_by(Vendor.created_at.desc()).offset(skip).limit(limit)
+    """Lists vendor records ordered by updated_at desc, created_at desc."""
+    stmt = select(Vendor).order_by(Vendor.updated_at.desc(), Vendor.created_at.desc()).offset(skip).limit(limit)
     res = await db.execute(stmt)
     return list(res.scalars().all())

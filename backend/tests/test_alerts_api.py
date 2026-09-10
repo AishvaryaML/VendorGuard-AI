@@ -38,13 +38,17 @@ async def test_monitoring_api_trigger_and_status():
 
     with patch.object(VendorCrawlerService, "crawl_vendor", new=AsyncMock(return_value=mock_crawl_data)):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-            # 1. Trigger POST /api/v1/monitoring/trigger
+            # 1. Trigger POST /api/v1/monitoring/trigger (returns 202 Accepted)
             res = await ac.post(f"/api/v1/monitoring/trigger?vendor_id={vendor_id}&force=true")
-            assert res.status_code == 200, f"Error: {res.text}"
+            assert res.status_code == 202, f"Error: {res.text}"
             data = res.json()
-            assert data["monitored_count"] == 1
-            assert data["results"][0]["vendor_id"] == vendor_id
-            assert data["results"][0]["status"] == "Success"
+            assert "job_id" in data
+            assert data["total_vendors"] == 1
+
+            # Verify job reached completion via /jobs/{job_id}
+            job_res = await ac.get(f"/api/v1/monitoring/jobs/{data['job_id']}")
+            assert job_res.status_code == 200
+            assert job_res.json()["status"] == "completed"
 
             # 2. Get GET /api/v1/monitoring/status/{vendor_id}
             status_res = await ac.get(f"/api/v1/monitoring/status/{vendor_id}")

@@ -1,6 +1,6 @@
-import os
+from pathlib import Path
 from typing import List, Optional
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,6 +29,20 @@ class Settings(BaseSettings):
         default="sqlite+aiosqlite:///./vendorguard.db",
         description="Async SQLAlchemy database URL"
     )
+
+    @field_validator("DATABASE_URL", mode="after")
+    @classmethod
+    def resolve_database_url(cls, v: str) -> str:
+        prefix_async = "sqlite+aiosqlite:///"
+        prefix_sync = "sqlite:///"
+        for prefix in (prefix_async, prefix_sync):
+            if v.startswith(prefix):
+                raw_path = v[len(prefix):]
+                if not Path(raw_path).is_absolute() and not (len(raw_path) > 2 and raw_path[1] == ":"):
+                    backend_dir = Path(__file__).resolve().parent.parent.parent
+                    abs_path = (backend_dir / raw_path).resolve()
+                    return f"{prefix}{abs_path.as_posix()}"
+        return v
 
     # AI Provider Settings ("ollama" or "openai")
     AI_PROVIDER: str = "ollama"

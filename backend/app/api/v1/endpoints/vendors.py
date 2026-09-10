@@ -1,14 +1,22 @@
+import re
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.schemas.vendor import VendorCreate, VendorResponse, VendorUpdate
 from app.schemas.document import DocumentResponse
 from app.schemas.risk import RiskAssessmentResponse
+from app.schemas.report_schema import VendorSecurityReport
 from app.services.crawler import VendorCrawlerService, normalize_url
 from app.services import vendor_service
 from app.services.risk_engine import AIRiskEngine, get_latest_vendor_risk_assessment
+from app.services.report_service import (
+    build_vendor_security_report,
+    generate_markdown_report,
+    generate_pdf_report,
+)
 
 router = APIRouter()
 
@@ -44,8 +52,8 @@ async def create_vendor(
         )
     except Exception as exc:
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Failed to crawl vendor website: {str(exc)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to register vendor profile: {str(exc)}"
         )
 
 
@@ -178,3 +186,74 @@ async def get_vendor_risk_assessment(
             detail=f"No risk assessment found for vendor with ID '{vendor_id}'."
         )
     return assessment
+
+
+@router.get("/{vendor_id}/report", response_model=VendorSecurityReport)
+async def get_vendor_report(
+    vendor_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Generates and returns the complete structured executive security assessment report
+    for a specified vendor.
+    """
+    report = await build_vendor_security_report(db=db, vendor_id=vendor_id)
+    if not report:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Vendor with ID '{vendor_id}' not found."
+        )
+    return report
+
+
+@router.get("/{vendor_id}/report/markdown")
+async def download_vendor_report_markdown(
+    vendor_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Generates and downloads a complete GitHub-Flavored Markdown executive security assessment report.
+    """
+    report = await build_vendor_security_report(db=db, vendor_id=vendor_id)
+    if not report:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Vendor with ID '{vendor_id}' not found."
+        )
+    md_content = generate_markdown_report(report)
+    slug = re.sub(r"[^a-zA-Z0-9_-]", "_", report.vendor.name.lower()).strip("_")
+    filename = f"vendorguard_{slug}_security_report.md"
+    return Response(
+        content=md_content,
+        media_type="text/markdown; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        }
+    )
+
+
+@router.get("/{vendor_id}/report/pdf")
+async def download_vendor_report_pdf(
+    vendor_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Generates and downloads a publication-grade PDF executive security assessment report.
+    """
+    report = await build_vendor_security_report(db=db, vendor_id=vendor_id)
+    if not report:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Vendor with ID '{vendor_id}' not found."
+        )
+    pdf_bytes = generate_pdf_report(report)
+    slug = re.sub(r"[^a-zA-Z0-9_-]", "_", report.vendor.name.lower()).strip("_")
+    filename = f"vendorguard_{slug}_security_report.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        }
+    )
+

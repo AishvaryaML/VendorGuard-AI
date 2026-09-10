@@ -54,6 +54,9 @@ def normalize_url(url: str) -> str:
     if not parsed.netloc:
         raise ValueError(f"Invalid URL format: '{url}' missing domain host.")
 
+    if "." not in parsed.netloc and parsed.netloc != "localhost":
+        raise ValueError(f"Invalid URL host: '{parsed.netloc}' is not a valid domain.")
+
     scheme = parsed.scheme.lower()
     netloc = parsed.netloc.lower()
     

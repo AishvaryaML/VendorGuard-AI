@@ -8,12 +8,14 @@ import {
   Alert,
   AlertListResponse,
   MonitoringTriggerResponse,
+  MonitoringJobStatusResponse,
   VendorMonitoringStatus,
   AssistantChatRequest,
   AssistantChatResponse,
   WorkflowRunRequest,
   WorkflowApprovalRequest,
   WorkflowStatusResponse,
+  VendorSecurityReport,
 } from '../types';
 
 export const apiClient = axios.create({
@@ -33,10 +35,12 @@ export const healthApi = {
 
 export const vendorApi = {
   createVendor: async (data: VendorCreate): Promise<Vendor> => {
-    const response = await apiClient.post<Vendor>('/vendors/', data);
+    const response = await apiClient.post<Vendor>('/vendors/', data, {
+      timeout: 60000, // 60s timeout for initial discovery crawl
+    });
     return response.data;
   },
-  listVendors: async (skip: number = 0, limit: number = 100): Promise<Vendor[]> => {
+  listVendors: async (skip: number = 0, limit: number = 200): Promise<Vendor[]> => {
     const response = await apiClient.get<Vendor[]>('/vendors/', { params: { skip, limit } });
     return response.data;
   },
@@ -49,7 +53,9 @@ export const vendorApi = {
     return response.data;
   },
   recrawlVendorDocuments: async (vendorId: string): Promise<Document[]> => {
-    const response = await apiClient.post<Document[]>(`/vendors/${vendorId}/crawl`);
+    const response = await apiClient.post<Document[]>(`/vendors/${vendorId}/crawl`, null, {
+      timeout: 60000,
+    });
     return response.data;
   },
 };
@@ -57,7 +63,7 @@ export const vendorApi = {
 export const riskApi = {
   analyzeVendor: async (vendorId: string): Promise<RiskAssessment> => {
     const response = await apiClient.post<RiskAssessment>(`/vendors/${vendorId}/analyze`, null, {
-      timeout: 60000, // 60s timeout for AI risk analysis with local Ollama
+      timeout: 120000, // 120s timeout for AI risk analysis with local Ollama
     });
     return response.data;
   },
@@ -71,7 +77,14 @@ export const monitoringApi = {
   triggerMonitoring: async (vendorId?: string, force: boolean = false): Promise<MonitoringTriggerResponse> => {
     const params: Record<string, any> = { force };
     if (vendorId) params.vendor_id = vendorId;
-    const response = await apiClient.post<MonitoringTriggerResponse>('/monitoring/trigger', null, { params });
+    const response = await apiClient.post<MonitoringTriggerResponse>('/monitoring/trigger', null, {
+      params,
+      timeout: 15000,
+    });
+    return response.data;
+  },
+  getJobStatus: async (jobId: string): Promise<MonitoringJobStatusResponse> => {
+    const response = await apiClient.get<MonitoringJobStatusResponse>(`/monitoring/jobs/${jobId}`);
     return response.data;
   },
   getVendorStatus: async (vendorId: string): Promise<VendorMonitoringStatus> => {
@@ -105,7 +118,7 @@ export const alertsApi = {
 export const assistantApi = {
   chat: async (payload: AssistantChatRequest): Promise<AssistantChatResponse> => {
     const response = await apiClient.post<AssistantChatResponse>('/assistant/chat', payload, {
-      timeout: 60000, // 60s dedicated timeout for local Ollama RAG inference
+      timeout: 120000, // 120s timeout for local Ollama RAG inference
     });
     return response.data;
   },
@@ -114,7 +127,7 @@ export const assistantApi = {
 export const agenticApi = {
   runWorkflow: async (payload: WorkflowRunRequest): Promise<WorkflowStatusResponse> => {
     const response = await apiClient.post<WorkflowStatusResponse>('/agentic/workflow/run', payload, {
-      timeout: 60000, // 60s timeout for multi-agent workflow initiation
+      timeout: 120000, // 120s timeout for multi-agent workflow initiation
     });
     return response.data;
   },
@@ -124,8 +137,43 @@ export const agenticApi = {
   },
   approveWorkflow: async (workflowId: string, payload: WorkflowApprovalRequest): Promise<WorkflowStatusResponse> => {
     const response = await apiClient.post<WorkflowStatusResponse>(`/agentic/workflow/approve/${workflowId}`, payload, {
-      timeout: 60000, // 60s timeout for workflow resumption
+      timeout: 120000, // 120s timeout for workflow resumption
     });
     return response.data;
+  },
+};
+
+export const reportsApi = {
+  getVendorReport: async (vendorId: string): Promise<VendorSecurityReport> => {
+    const response = await apiClient.get<VendorSecurityReport>(`/vendors/${vendorId}/report`);
+    return response.data;
+  },
+  downloadReportMarkdown: async (vendorId: string, filename?: string): Promise<void> => {
+    const response = await apiClient.get(`/vendors/${vendorId}/report/markdown`, {
+      responseType: 'blob',
+    });
+    const blob = new Blob([response.data], { type: 'text/markdown;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename || `vendor-report-${vendorId}.md`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+  downloadReportPdf: async (vendorId: string, filename?: string): Promise<void> => {
+    const response = await apiClient.get(`/vendors/${vendorId}/report/pdf`, {
+      responseType: 'blob',
+    });
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename || `vendor-report-${vendorId}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
   },
 };

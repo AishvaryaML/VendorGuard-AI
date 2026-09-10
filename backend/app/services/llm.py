@@ -225,7 +225,7 @@ class OllamaLLMService(BaseLLMService):
         ]
 
         try:
-            async with httpx.AsyncClient(timeout=120.0) as client:
+            async with httpx.AsyncClient(timeout=300.0) as client:
                 res = await client.post(
                     f"{self.base_url}/api/chat",
                     json={
@@ -248,8 +248,9 @@ class OllamaLLMService(BaseLLMService):
             return AIAssessmentResultSchema.model_validate(parsed_json)
 
         except Exception as exc:
-            logger.error("Ollama API call failed: %s", str(exc), exc_info=True)
-            raise RuntimeError(f"Ollama LLM service failure: {str(exc)}") from exc
+            err_msg = str(exc) or type(exc).__name__
+            logger.error("Ollama API call failed: %s", err_msg, exc_info=True)
+            raise RuntimeError(f"Ollama LLM service failure: {err_msg}") from exc
 
     async def generate_assistant_answer(
         self,
