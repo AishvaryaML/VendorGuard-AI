@@ -1,7 +1,8 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { PageHeader } from '../../components/common/PageHeader';
-import { History, Building2, FileText, Sparkles, Bell, Clock, Loader2 } from 'lucide-react';
+import { History, Building2, FileText, Sparkles, Bell, Clock, Loader2, GitCompare } from 'lucide-react';
 import { vendorApi, alertsApi } from '../../services/api';
 import { Vendor, Alert } from '../../types';
 
@@ -12,7 +13,10 @@ interface TimelineEvent {
   title: string;
   description: string;
   vendorName: string;
+  vendorId?: string;
+  documentId?: string;
 }
+
 
 export const TimelinePage: React.FC = () => {
   // Fetch Vendors
@@ -53,8 +57,11 @@ export const TimelinePage: React.FC = () => {
           title: `Policy Version v${ver.version_number}: ${doc.document_type}`,
           description: ver.change_summary || ver.summary || `SHA-256 Hash: ${ver.content_hash.slice(0, 12)}...`,
           vendorName: v.name,
+          vendorId: v.id,
+          documentId: doc.id,
         });
       });
+
     });
 
     // 3. Risk Assessment Events
@@ -142,7 +149,18 @@ export const TimelinePage: React.FC = () => {
                     </span>
                   </div>
                   <p className="text-xs text-slate-300">{event.description}</p>
+                  {event.type === 'DOCUMENT' && event.documentId && event.vendorId && (
+                    <div className="pt-2">
+                      <Link
+                        to={`/policy-diff?vendorId=${event.vendorId}&documentId=${event.documentId}`}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-cyber-cyan/10 text-cyber-cyan border border-cyber-cyan/30 text-[11px] font-semibold hover:bg-cyber-cyan/20 transition-all"
+                      >
+                        <GitCompare className="w-3 h-3" /> Inspect Policy Drift →
+                      </Link>
+                    </div>
+                  )}
                 </div>
+
               </div>
             ))}
           </div>

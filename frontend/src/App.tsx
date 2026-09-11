@@ -11,6 +11,7 @@ import { TimelinePage } from './features/timeline/TimelinePage';
 import { CompliancePage } from './features/compliance/CompliancePage';
 import { AlertsPage } from './features/alerts/AlertsPage';
 import { ReportsPage } from './features/reports/ReportsPage';
+import { PolicyDiffPage } from './features/policy-diff/PolicyDiffPage';
 import { AssistantPage } from './features/assistant/AssistantPage';
 import { SettingsPage } from './features/settings/SettingsPage';
 
@@ -37,6 +38,7 @@ export const App: React.FC = () => {
             <Route path="compliance" element={<CompliancePage />} />
             <Route path="alerts" element={<AlertsPage />} />
             <Route path="reports" element={<ReportsPage />} />
+            <Route path="policy-diff" element={<PolicyDiffPage />} />
             <Route path="assistant" element={<AssistantPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
@@ -45,5 +47,6 @@ export const App: React.FC = () => {
     </QueryClientProvider>
   );
 };
+
 
 export default App;

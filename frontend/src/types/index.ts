@@ -286,3 +286,108 @@ export interface VendorSecurityReport {
   has_assessment_data: boolean;
   generated_at: string;
 }
+
+// --- Policy Diff & Semantic Change Analyzer Types ---
+
+export type MaterialityTier = 'Low' | 'Medium' | 'High' | 'Critical';
+export type RiskPostureImpact = 'Favorable' | 'Neutral' | 'Adverse';
+export type RiskPillar = 'Privacy' | 'Security' | 'Compliance' | 'Legal' | 'Multiple';
+
+export interface WordDiff {
+  type: 'added' | 'deleted' | 'unchanged';
+  text: string;
+}
+
+export interface DiffLine {
+  type: 'added' | 'deleted' | 'unchanged' | 'header';
+  old_line_no?: number | null;
+  new_line_no?: number | null;
+  content: string;
+  word_diffs?: WordDiff[] | null;
+}
+
+export interface SideBySideRow {
+  row_type: 'unchanged' | 'modified' | 'added' | 'deleted';
+  left_line_no?: number | null;
+  left_content?: string | null;
+  left_type?: string | null;
+  right_line_no?: number | null;
+  right_content?: string | null;
+  right_type?: string | null;
+  left_words?: WordDiff[] | null;
+  right_words?: WordDiff[] | null;
+}
+
+export interface DiffHunk {
+  old_start: number;
+  old_lines_count: number;
+  new_start: number;
+  new_lines_count: number;
+  header: string;
+  lines: DiffLine[];
+}
+
+export interface DiffStats {
+  total_lines_old: number;
+  total_lines_new: number;
+  added_lines: number;
+  deleted_lines: number;
+  changed_lines: number;
+  is_identical: boolean;
+  is_truncated: boolean;
+  truncation_note?: string | null;
+}
+
+export interface DeterministicDiff {
+  stats: DiffStats;
+  unified_hunks: DiffHunk[];
+  side_by_side_rows: SideBySideRow[];
+  raw_unified_diff: string;
+}
+
+export interface ClauseChangeItem {
+  clause_title: string;
+  change_type: string;
+  intent: string;
+  impact_level: string;
+  risk_pillar: string;
+  quote?: string | null;
+}
+
+export interface SemanticImpact {
+  executive_change_summary: string;
+  materiality: MaterialityTier;
+  affected_clauses: string[];
+  clause_category: string;
+  modification_intent: string;
+  affected_risk_pillar: RiskPillar;
+  risk_posture: RiskPostureImpact;
+  risk_delta_explanation: string;
+  clause_breakdown: ClauseChangeItem[];
+}
+
+export interface PolicyVersionSummary {
+  id: string;
+  document_id: string;
+  version_number: number;
+  content_hash: string;
+  crawled_at: string;
+  summary?: string | null;
+  change_summary?: string | null;
+  line_count: number;
+}
+
+export interface PolicyDiffResponse {
+  vendor_id: string;
+  vendor_name: string;
+  document_id: string;
+  document_title: string;
+  document_type: string;
+  old_version: PolicyVersionSummary;
+  new_version: PolicyVersionSummary;
+  deterministic_diff: DeterministicDiff;
+  semantic_impact: SemanticImpact;
+  is_cached: boolean;
+  analyzed_at: string;
+}
+

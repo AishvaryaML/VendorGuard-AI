@@ -16,7 +16,10 @@ import {
   WorkflowApprovalRequest,
   WorkflowStatusResponse,
   VendorSecurityReport,
+  PolicyVersionSummary,
+  PolicyDiffResponse,
 } from '../types';
+
 
 export const apiClient = axios.create({
   baseURL: '/api/v1',
@@ -177,3 +180,28 @@ export const reportsApi = {
     window.URL.revokeObjectURL(url);
   },
 };
+
+export const policyDiffApi = {
+  getDocumentVersions: async (vendorId: string, documentId: string): Promise<PolicyVersionSummary[]> => {
+    const response = await apiClient.get<PolicyVersionSummary[]>(
+      `/vendors/${vendorId}/documents/${documentId}/versions`
+    );
+    return response.data;
+  },
+  getPolicyDiff: async (
+    vendorId: string,
+    documentId: string,
+    v1: string,
+    v2: string
+  ): Promise<PolicyDiffResponse> => {
+    const response = await apiClient.get<PolicyDiffResponse>(
+      `/vendors/${vendorId}/documents/${documentId}/diff`,
+      {
+        params: { v1, v2 },
+        timeout: 120000, // 120s timeout for LLM semantic analysis
+      }
+    );
+    return response.data;
+  },
+};
+

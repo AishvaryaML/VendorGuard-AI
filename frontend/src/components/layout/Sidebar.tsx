@@ -10,10 +10,12 @@ import {
   ShieldCheck,
   Bell,
   FileText,
+  GitCompare,
   Bot,
   Settings,
   ChevronRight
 } from 'lucide-react';
+
 
 interface SidebarProps {
   isOpen: boolean;
@@ -30,9 +32,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
     { name: 'Compliance Intelligence', path: '/compliance', icon: ShieldCheck },
     { name: 'Alerts Center', path: '/alerts', icon: Bell },
     { name: 'Executive Reports', path: '/reports', icon: FileText },
+    { name: 'Policy Diff & Drift', path: '/policy-diff', icon: GitCompare },
     { name: 'AI Risk Assistant', path: '/assistant', icon: Bot },
     { name: 'System Settings', path: '/settings', icon: Settings },
   ];
+
 
   return (
     <aside

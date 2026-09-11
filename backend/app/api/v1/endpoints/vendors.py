@@ -9,8 +9,9 @@ from app.schemas.vendor import VendorCreate, VendorResponse, VendorUpdate
 from app.schemas.document import DocumentResponse
 from app.schemas.risk import RiskAssessmentResponse
 from app.schemas.report_schema import VendorSecurityReport
+from app.schemas.policy_diff import PolicyDiffResponse, PolicyVersionSummary
 from app.services.crawler import VendorCrawlerService, normalize_url
-from app.services import vendor_service
+from app.services import vendor_service, policy_diff_service
 from app.services.risk_engine import AIRiskEngine, get_latest_vendor_risk_assessment
 from app.services.report_service import (
     build_vendor_security_report,
@@ -98,7 +99,67 @@ async def get_vendor_documents(
     return vendor.documents
 
 
+@router.get("/{vendor_id}/documents/{document_id}/versions", response_model=List[PolicyVersionSummary])
+async def get_document_versions(
+    vendor_id: str,
+    document_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Retrieves all historical policy versions for a specific document."""
+    try:
+        versions = await policy_diff_service.get_document_versions(
+            db=db,
+            vendor_id=vendor_id,
+            document_id=document_id
+        )
+        return versions
+    except ValueError as ve:
+        err_msg = str(ve)
+        if "not found" in err_msg.lower():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=err_msg)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=err_msg)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve document versions: {str(exc)}"
+        )
+
+
+@router.get("/{vendor_id}/documents/{document_id}/diff", response_model=PolicyDiffResponse)
+async def get_policy_diff(
+    vendor_id: str,
+    document_id: str,
+    v1: str = Query(..., description="ID of baseline/older policy version"),
+    v2: str = Query(..., description="ID of comparison/newer policy version"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Computes/retrieves structured deterministic diff and AI semantic impact analysis
+    between two policy versions for a vendor document.
+    """
+    try:
+        diff_response = await policy_diff_service.get_or_compute_policy_diff(
+            db=db,
+            vendor_id=vendor_id,
+            document_id=document_id,
+            old_version_id=v1,
+            new_version_id=v2
+        )
+        return diff_response
+    except ValueError as ve:
+        err_msg = str(ve)
+        if "not found" in err_msg.lower():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=err_msg)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=err_msg)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to compute policy diff: {str(exc)}"
+        )
+
+
 @router.post("/{vendor_id}/crawl", response_model=List[DocumentResponse])
+
 async def recrawl_vendor_documents(
     vendor_id: str,
     db: AsyncSession = Depends(get_db)

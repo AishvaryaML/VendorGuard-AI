@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PageHeader } from '../../components/common/PageHeader';
 import {
@@ -20,9 +21,11 @@ import {
   RefreshCw,
   Search,
   Check,
+  GitCompare,
 } from 'lucide-react';
 import { vendorApi, riskApi, reportsApi } from '../../services/api';
 import { Vendor, VendorSecurityReport, RiskTier } from '../../types';
+
 
 export const ReportsPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -637,6 +640,7 @@ export const ReportsPage: React.FC = () => {
                           <th className="py-2.5 px-3">Version</th>
                           <th className="py-2.5 px-3">Last Crawled</th>
                           <th className="py-2.5 px-3">Status / Drift</th>
+                          <th className="py-2.5 px-3 text-right">Drift Analysis</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border/60">
@@ -679,8 +683,17 @@ export const ReportsPage: React.FC = () => {
                                 </span>
                               )}
                             </td>
+                            <td className="py-2.5 px-3 text-right">
+                              <Link
+                                to={`/policy-diff?vendorId=${selectedVendorId}&documentId=${snap.document_id}`}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-cyber-cyan/10 text-cyber-cyan border border-cyber-cyan/30 text-[10px] font-semibold hover:bg-cyber-cyan/20 transition-all"
+                              >
+                                <GitCompare className="w-3 h-3" /> Compare Drift →
+                              </Link>
+                            </td>
                           </tr>
                         ))}
+
                       </tbody>
                     </table>
                   </div>

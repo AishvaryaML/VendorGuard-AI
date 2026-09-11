@@ -4,6 +4,15 @@ from app.schemas.document import DocumentCreate, DocumentResponse, PolicyVersion
 from app.schemas.risk import RiskAssessmentCreate, RiskAssessmentResponse, CategoryScoreResponse
 from app.schemas.alert import AlertCreate, AlertResponse
 from app.schemas.audit import AuditLogCreate, AuditLogResponse
+from app.schemas.policy_diff import (
+    PolicyDiffResponse,
+    DeterministicDiffSchema,
+    SemanticImpactSchema,
+    DiffHunkSchema,
+    DiffStatsSchema,
+    SideBySideRowSchema,
+    PolicyVersionSummary,
+)
 
 __all__ = [
     "SystemHealthResponse",
@@ -20,4 +29,12 @@ __all__ = [
     "AlertResponse",
     "AuditLogCreate",
     "AuditLogResponse",
+    "PolicyDiffResponse",
+    "DeterministicDiffSchema",
+    "SemanticImpactSchema",
+    "DiffHunkSchema",
+    "DiffStatsSchema",
+    "SideBySideRowSchema",
+    "PolicyVersionSummary",
 ]
+

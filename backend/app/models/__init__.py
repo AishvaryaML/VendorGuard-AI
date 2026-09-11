@@ -5,6 +5,7 @@ from app.models.document_chunk import DocumentChunk
 from app.models.risk import RiskAssessment, CategoryScore
 from app.models.alert import Alert
 from app.models.audit import AuditLog
+from app.models.policy_diff import PolicyDiff
 
 __all__ = [
     "TimestampMixin",
@@ -18,5 +19,7 @@ __all__ = [
     "RiskAssessment",
     "CategoryScore",
     "Alert",
-    "AuditLog"
+    "AuditLog",
+    "PolicyDiff",
 ]
+
