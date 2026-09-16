@@ -391,3 +391,33 @@ export interface PolicyDiffResponse {
   analyzed_at: string;
 }
 
+// --- Compliance Framework Types ---
+
+export interface ComplianceFrameworkSummary {
+  framework: string;
+  pass_count: number;
+  partial_count: number;
+  gap_count: number;
+  not_assessed_count: number;
+  coverage_percentage: number;
+}
+
+export interface ComplianceAssessmentResult {
+  framework: string;
+  control_id: string;
+  control_title: string;
+  status: 'PASS' | 'PARTIAL' | 'GAP' | 'NOT_ASSESSED';
+  confidence: number;
+  evidence_quote?: string | null;
+  source_url?: string | null;
+  source_document?: string | null;
+  source_version?: string | null;
+  explanation?: string | null;
+  gap_reason?: string | null;
+}
+
+export interface ComplianceCrosswalkResponse {
+  vendor_id: string;
+  summaries: ComplianceFrameworkSummary[];
+  assessments: ComplianceAssessmentResult[];
+}

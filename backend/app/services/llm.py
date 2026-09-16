@@ -8,6 +8,7 @@ from app.core.config import settings
 from app.schemas.risk import AIAssessmentResultSchema
 from app.schemas.assistant import ChatMessagePayload
 from app.schemas.policy_diff import SemanticImpactSchema
+from app.schemas.compliance import ComplianceAssessmentResult
 
 logger = logging.getLogger("vendorguard.services.llm")
 
@@ -51,6 +52,20 @@ class BaseLLMService(ABC):
         diff_context: str
     ) -> SemanticImpactSchema:
         """Invokes LLM to return structured semantic impact of policy diff matching SemanticImpactSchema."""
+        pass
+
+    @abstractmethod
+    async def analyze_compliance_control(
+        self,
+        vendor_name: str,
+        control_framework: str,
+        control_id: str,
+        control_title: str,
+        control_description: str,
+        required_evidence: str,
+        evidence_text: str
+    ) -> "ComplianceAssessmentResult": # Need to import or reference
+        """Evaluates policy evidence against a specific compliance control."""
         pass
 
 
@@ -246,6 +261,67 @@ class OpenAILLMService(BaseLLMService):
 
         except Exception as exc:
             logger.error("OpenAI Policy Diff analysis failed: %s", str(exc), exc_info=True)
+            raise RuntimeError(f"LLM API call failed: {str(exc)}") from exc
+
+    async def analyze_compliance_control(
+        self,
+        vendor_name: str,
+        control_framework: str,
+        control_id: str,
+        control_title: str,
+        control_description: str,
+        required_evidence: str,
+        evidence_text: str
+    ) -> ComplianceAssessmentResult:
+        if not self.api_key or not self.api_key.strip():
+            raise ValueError(
+                "Compliance analysis unavailable — OpenAI API key is not configured."
+            )
+
+        try:
+            from openai import AsyncOpenAI
+            client = AsyncOpenAI(api_key=self.api_key)
+
+            system_instruction = (
+                "You are an expert Compliance Auditor. "
+                "Analyze the retrieved policy evidence against the specified compliance control and return structured JSON. "
+                "Rules:\n"
+                "1. If the evidence satisfies the control, status is PASS.\n"
+                "2. If it partially addresses it, status is PARTIAL.\n"
+                "3. If there is explicit evidence it fails, status is GAP.\n"
+                "4. If there is NO sufficient evidence, status is NOT_ASSESSED. Do NOT invent evidence. Do NOT assume compliance.\n"
+                "5. For PASS or PARTIAL, provide an exact verbatim 'evidence_quote' and 'source_url' from the text. "
+                "Do NOT make up the quote or the URL."
+            )
+
+            user_prompt = (
+                f"Vendor: {vendor_name}\n"
+                f"Framework: {control_framework}\n"
+                f"Control: {control_id} - {control_title}\n"
+                f"Description: {control_description}\n"
+                f"Required Evidence: {required_evidence}\n\n"
+                f"--- RETRIEVED POLICY EVIDENCE ---\n"
+                f"{evidence_text}\n"
+            )
+
+            response = await client.beta.chat.completions.parse(
+                model=self.model_name,
+                messages=[
+                    {"role": "system", "content": system_instruction},
+                    {"role": "user", "content": user_prompt},
+                ],
+                response_format=ComplianceAssessmentResult,
+                temperature=0.0,
+            )
+
+            result = response.choices[0].message.parsed
+            result.framework = control_framework
+            result.control_id = control_id
+            result.control_title = control_title
+            return result
+
+        except Exception as exc:
+            logger.error("OpenAI Compliance analysis failed: %s", str(exc), exc_info=True)
             raise RuntimeError(f"LLM API call failed: {str(exc)}") from exc
 
 
@@ -482,6 +558,77 @@ class OllamaLLMService(BaseLLMService):
             err_msg = str(exc) or type(exc).__name__
             logger.error("Ollama Policy Diff API call failed: %s", err_msg, exc_info=True)
             raise RuntimeError(f"Ollama Policy Diff service failure: {err_msg}") from exc
+
+
+    async def analyze_compliance_control(
+        self,
+        vendor_name: str,
+        control_framework: str,
+        control_id: str,
+        control_title: str,
+        control_description: str,
+        required_evidence: str,
+        evidence_text: str
+    ) -> ComplianceAssessmentResult:
+        system_instruction = (
+            "You are an expert Compliance Auditor. "
+            "Analyze the retrieved policy evidence against the specified compliance control and return structured JSON matching the requested schema.\n"
+            "JSON SCHEMA:\n"
+            "{\n"
+            '  "status": "PASS" | "PARTIAL" | "GAP" | "NOT_ASSESSED",\n'
+            '  "confidence": 0.0 to 1.0,\n'
+            '  "evidence_quote": "Exact verbatim quote from provided evidence",\n'
+            '  "source_url": "URL string from evidence",\n'
+            '  "explanation": "Brief explanation",\n'
+            '  "gap_reason": "Reason if GAP or NOT_ASSESSED"\n'
+            "}\n"
+            "Do NOT make up the quote or URL."
+        )
+
+        user_prompt = (
+            f"Vendor: {vendor_name}\n"
+            f"Framework: {control_framework}\n"
+            f"Control: {control_id} - {control_title}\n"
+            f"Description: {control_description}\n"
+            f"Required Evidence: {required_evidence}\n\n"
+            f"--- RETRIEVED POLICY EVIDENCE ---\n"
+            f"{evidence_text}\n"
+        )
+
+        messages = [
+            {"role": "system", "content": system_instruction},
+            {"role": "user", "content": user_prompt},
+        ]
+
+        try:
+            async with httpx.AsyncClient(timeout=180.0) as client:
+                res = await client.post(
+                    f"{self.base_url}/api/chat",
+                    json={
+                        "model": self.model_name,
+                        "messages": messages,
+                        "format": "json",
+                        "stream": False,
+                        "options": {"temperature": 0.0}
+                    }
+                )
+                res.raise_for_status()
+                data = res.json()
+
+            raw_content = data.get("message", {}).get("content", "")
+            if not raw_content:
+                raise ValueError("Empty response received from Ollama model.")
+
+            parsed_json = json.loads(raw_content)
+            parsed_json["framework"] = control_framework
+            parsed_json["control_id"] = control_id
+            parsed_json["control_title"] = control_title
+            return ComplianceAssessmentResult.model_validate(parsed_json)
+
+        except Exception as exc:
+            err_msg = str(exc) or type(exc).__name__
+            logger.error("Ollama Compliance API call failed: %s", err_msg, exc_info=True)
+            raise RuntimeError(f"Ollama Compliance service failure: {err_msg}") from exc
 
 
 def get_llm_service(

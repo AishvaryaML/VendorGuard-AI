@@ -6,6 +6,7 @@ from app.models.risk import RiskAssessment, CategoryScore
 from app.models.alert import Alert
 from app.models.audit import AuditLog
 from app.models.policy_diff import PolicyDiff
+from app.models.compliance import ComplianceAssessment
 
 __all__ = [
     "TimestampMixin",
@@ -21,5 +22,6 @@ __all__ = [
     "Alert",
     "AuditLog",
     "PolicyDiff",
+    "ComplianceAssessment",
 ]
 

@@ -18,6 +18,7 @@ import {
   VendorSecurityReport,
   PolicyVersionSummary,
   PolicyDiffResponse,
+  ComplianceCrosswalkResponse,
 } from '../types';
 
 
@@ -205,3 +206,16 @@ export const policyDiffApi = {
   },
 };
 
+export const complianceApi = {
+  getVendorCompliance: async (vendorId: string, framework?: string, status?: string): Promise<ComplianceCrosswalkResponse> => {
+    const params: Record<string, string> = {};
+    if (framework && framework !== 'All Frameworks') params.framework = framework;
+    if (status && status !== 'All Statuses') params.status = status;
+    
+    const response = await apiClient.get<ComplianceCrosswalkResponse>(`/vendors/${vendorId}/compliance`, {
+      params,
+      timeout: 120000,
+    });
+    return response.data;
+  },
+};

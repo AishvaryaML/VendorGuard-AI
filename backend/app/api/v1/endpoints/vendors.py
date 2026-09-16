@@ -318,3 +318,37 @@ async def download_vendor_report_pdf(
         }
     )
 
+
+@router.get("/{vendor_id}/compliance")
+async def get_vendor_compliance(
+    vendor_id: str,
+    framework: str = Query(None, description="Optional framework filter (e.g. SOC 2 Type II)"),
+    status_filter: str = Query(None, alias="status", description="Optional status filter (PASS, PARTIAL, GAP, NOT_ASSESSED)"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Retrieves and/or computes evidence-grounded compliance crosswalk for the given vendor.
+    """
+    from app.services.compliance.service import compliance_service
+    try:
+        response = await compliance_service.get_or_compute_compliance(
+            db=db,
+            vendor_id=vendor_id,
+            framework=framework
+        )
+        
+        if status_filter:
+            response.assessments = [a for a in response.assessments if a.status == status_filter]
+            
+        return response
+    except ValueError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(ve)
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate compliance report: {str(exc)}"
+        )
+

@@ -13,6 +13,11 @@ from app.schemas.policy_diff import (
     SideBySideRowSchema,
     PolicyVersionSummary,
 )
+from app.schemas.compliance import (
+    ComplianceAssessmentResult,
+    ComplianceFrameworkSummarySchema,
+    ComplianceCrosswalkResponse,
+)
 
 __all__ = [
     "SystemHealthResponse",
@@ -36,5 +41,8 @@ __all__ = [
     "DiffStatsSchema",
     "SideBySideRowSchema",
     "PolicyVersionSummary",
+    "ComplianceAssessmentResult",
+    "ComplianceFrameworkSummarySchema",
+    "ComplianceCrosswalkResponse",
 ]
 
